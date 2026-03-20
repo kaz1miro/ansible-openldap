@@ -23,9 +23,9 @@ Playbook выполняется идемпотентно
 ```
 
 ## Инструкция по запуску 
-1. клонировать репозиторий `git clone
+1. клонировать репозиторий 
 ```
-https://github.com/kaz1miro/ansible-openldap
+git clone https://github.com/kaz1miro/ansible-openldap
 ```
 2. зайти в папку репозитория 
 3. выполнить
