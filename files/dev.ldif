@@ -1,0 +1,4 @@
+dn: cn=dev,ou=groups,dc=example,dc=com
+objectClass: groupOfNames
+cn: dev
+member: uid=user1,ou=users,dc=example,dc=com

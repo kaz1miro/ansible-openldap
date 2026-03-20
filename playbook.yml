@@ -1,0 +1,105 @@
+- name: Install and prepare OpenLDAP
+  hosts: ldap
+  become: true
+  tasks:
+    - name: Install prerequisites for debconf
+      apt:
+        name:
+          - debconf
+          - debconf-utils
+        state: present
+        update_cache: yes
+    - name: Preconfigure slapd (debconf)
+      debconf:
+        name: slapd
+        question: "{{ item.question }}"
+        value: "{{ item.value }}"
+        vtype: "{{ item.vtype }}"
+      loop:
+        - { question: "slapd/no_configuration", value: "false", vtype: "boolean" }
+        - { question: "slapd/domain", value: "example.com", vtype: "string" }
+        - { question: "shared/organization", value: "Example", vtype: "string" }
+        - { question: "slapd/password1", value: "admin", vtype: "password" }
+        - { question: "slapd/password2", value: "admin", vtype: "password" }
+        - { question: "slapd/backend", value: "MDB", vtype: "select" }
+        - { question: "slapd/purge_database", value: "true", vtype: "boolean" }
+        - { question: "slapd/move_old_database", value: "true", vtype: "boolean" }
+    - name: Install slapd and ldap-utils
+      apt:
+        name:
+          - slapd
+          - ldap-utils
+        state: present
+        update_cache: yes
+
+    - name: Copy LDIF files to /tmp
+      copy:
+        src: "files/{{ item }}"
+        dest: "/tmp/{{ item }}"
+      loop:
+        - base.ldif
+        - user1.ldif
+        - user2.ldif
+        - dev.ldif
+        - admin.ldif
+
+    - name: Check that LDAP server is reachable
+      command: ldapsearch -x -LLL -H ldap://localhost -b "" -s base namingContexts
+      register: ldap_server_check
+      failed_when: false
+      changed_when: false
+
+    - name: Fail if LDAP server is not reachable
+      fail:
+        msg: "LDAP server is not reachable"
+      when: ldap_server_check.rc != 0
+
+    - name: Check if users OU exists
+      command: ldapsearch -x -LLL -b "ou=users,dc=example,dc=com"
+      register: users_ou_check
+      failed_when: false
+      changed_when: false
+
+    - name: Add base structure
+      command: ldapadd -x -D "cn=admin,dc=example,dc=com" -w admin -f /tmp/base.ldif
+      when: users_ou_check.rc != 0
+
+    - name: Check if user1 exists
+      command: ldapsearch -x -LLL -b "uid=user1,ou=users,dc=example,dc=com"
+      register: user1_check
+      failed_when: false
+      changed_when: false
+
+    - name: Add user1
+      command: ldapadd -x -D "cn=admin,dc=example,dc=com" -w admin -f /tmp/user1.ldif
+      when: user1_check.rc != 0
+
+    - name: Check if user2 exists
+      command: ldapsearch -x -LLL -b "uid=user2,ou=users,dc=example,dc=com"
+      register: user2_check
+      failed_when: false
+      changed_when: false
+
+    - name: Add user2
+      command: ldapadd -x -D "cn=admin,dc=example,dc=com" -w admin -f /tmp/user2.ldif
+      when: user2_check.rc != 0
+
+    - name: Check if dev group exists
+      command: ldapsearch -x -LLL -b "cn=dev,ou=groups,dc=example,dc=com"
+      register: dev_check
+      failed_when: false
+      changed_when: false
+
+    - name: Add dev group
+      command: ldapadd -x -D "cn=admin,dc=example,dc=com" -w admin -f /tmp/dev.ldif
+      when: dev_check.rc != 0
+
+    - name: Check if admin group exists
+      command: ldapsearch -x -LLL -b "cn=admin,ou=groups,dc=example,dc=com"
+      register: admin_check
+      failed_when: false
+      changed_when: false
+
+    - name: Add admin group
+      command: ldapadd -x -D "cn=admin,dc=example,dc=com" -w admin -f /tmp/admin.ldif
+      when: admin_check.rc != 0
